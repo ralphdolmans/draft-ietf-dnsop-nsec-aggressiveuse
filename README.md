@@ -28,8 +28,8 @@ Abstract
    resilience to certain DoS attacks in some circumstances.
 
    This document updates RFC4035 by allowing validating resolvers to
-   generate negative based upon NSEC/NSEC3 records (and positive answers
-   in the presence of wildcards).
+   generate negative answers based upon NSEC/NSEC3 records (and positive
+   answers in the presence of wildcards).
 
    [ Ed note: Text inside square brackets ([]) is additional background
    information, answers to frequently asked questions, general musings,
@@ -127,10 +127,10 @@ Internet-Draft              NSEC/NSEC3 usage               November 2016
    This document updates RFC 4035 to allow recursive resolvers to use
    NSEC/NSEC3 resource records to synthesize negative answers from the
    information they have in the cache.  This allows validating resolvers
-   to respond with NXDOMAIN immediately if the name in question falls
-   into a range expressed by a NSEC/NSEC3 resource record already in the
-   cache.  It also allows the synthesis of positive answers in the
-   presence of wildcard records.
+   to respond with a negative answer immediately if the name in question
+   falls into a range expressed by a NSEC/NSEC3 resource record already
+   in the cache.  It also allows the synthesis of positive answers in
+   the presence of wildcard records.
 
    Aggressive Negative Caching was first proposed in Section 6 of DNSSEC
    Lookaside Validation (DLV) [RFC5074] in order to find covering NSEC
@@ -148,11 +148,8 @@ Internet-Draft              NSEC/NSEC3 usage               November 2016
    Many of the specialized terms used in this document are defined in
    DNS Terminology [RFC7719].
 
-   The key words "Closest Encloser" and "Source of Synthesis" in this
-   document are to be interpreted as described in [RFC4592].
-
-   "Closest Encloser" is also defined in NSEC3 [RFC5155], as is "Next
-   closer name".
+   The key word "Source of Synthesis" in this document is to be
+   interpreted as described in [RFC4592].
 
 3.  Problem Statement
 
@@ -165,6 +162,9 @@ Internet-Draft              NSEC/NSEC3 usage               November 2016
    elephant.example.com  IN A 192.0.2.2
    zebra.example.com     IN A 192.0.2.3
 
+   If a validating resolver receives a query for cat.example.com, it
+   contacts its resolver (which may be itself) to query the example.com
+
 
 
 Fujiwara, et al.          Expires May 20, 2017                  [Page 3]
@@ -172,9 +172,7 @@ Fujiwara, et al.          Expires May 20, 2017                  [Page 3]
 Internet-Draft              NSEC/NSEC3 usage               November 2016
 
 
-   If a validating resolver receives a query for cat.example.com, it
-   contacts its resolver (which may be itself) to query the example.com
-   servers and will get back an NSEC record starting that there are no
+   servers and will get back an NSEC record stating that there are no
    records (alphabetically) between albatross and elephant, or an NSEC3
    record stating there is nothing between two hashed names.  The
    resolver then knows that cat.example.com does not exist; however, it
@@ -220,6 +218,8 @@ Internet-Draft              NSEC/NSEC3 usage               November 2016
    containing the names which appear alphabetically before and after the
    queried for name.  In the first example above, if the (DNSSEC
    validating) recursive server were to query for dog.example.com it
+   would receive a (signed) NSEC record stating that there are no labels
+   between "albatross" and "elephant" (or, for NSEC3, a similar pair of
 
 
 
@@ -228,8 +228,6 @@ Fujiwara, et al.          Expires May 20, 2017                  [Page 4]
 Internet-Draft              NSEC/NSEC3 usage               November 2016
 
 
-   would receive a (signed) NSEC record stating that there are no labels
-   between "albatross" and "elephant" (or, for NSEC3, a similar pair of
    hashed names).  This is a signed, cryptographic proof that these
    names are the ones before and after the queried for label.  As
    dog.example.com falls within this range, the recursive server knows
@@ -258,16 +256,16 @@ Internet-Draft              NSEC/NSEC3 usage               November 2016
    that NSEC range (for the TTL).  If a new name is added to the zone
    during this interval the resolver will not know this.  Similarly, if
    the resolver is generating responses from a wildcard record, it will
-   continue to do so (for the
+   continue to do so (for the TTL).
 
    We believe this recommendation can be relaxed because, in the absense
    of this technique, a lookup for the exact name could have come in
    during this interval, and so a negative answer could already be
    cached (see [RFC2308] for more background).  This means that zone
    operators should have no expectation that an added name would work
-   immediately.  With DNSSEC and Aggressive NSEC, the TTL of the NSEC
-   record is the authoritative statement of how quickly a name can start
-   working within a zone.
+   immediately.  With DNSSEC and Aggressive NSEC, the TTL of the NSEC/
+   NSEC3 record and the SOA.MINIMUM field are the authoritative
+   statement of how quickly a name can start working within a zone.
 
 5.  Aggressive use of Cache
 
@@ -276,6 +274,8 @@ Internet-Draft              NSEC/NSEC3 usage               November 2016
    (respectively) until the TTL or signatures on the records in question
    expire.  However, it seems prudent for resolvers to avoid blocking
    new authoritative data or synthesizing new data on their own.
+   Resolvers that follow this recommendation will have a more consistent
+
 
 
 
@@ -284,7 +284,6 @@ Fujiwara, et al.          Expires May 20, 2017                  [Page 5]
 Internet-Draft              NSEC/NSEC3 usage               November 2016
 
 
-   Resolvers that follow this recommendation will have a more consistent
    view of the namespace".  This document relaxes this this restriction,
    see Section 7 for more detail.
 
@@ -331,7 +330,8 @@ Internet-Draft              NSEC/NSEC3 usage               November 2016
    The last paragraph of [RFC4035] Section 4.5 also discusses the use of
    wildcards and NSEC RRs to generate positive responses and recommends
    that it not be relied upon.  Just like the case for the aggressive
-
+   use of NSEC/NSEC3 for negative answers, we revise this
+   recommendation.
 
 
 
@@ -339,9 +339,6 @@ Fujiwara, et al.          Expires May 20, 2017                  [Page 6]
 
 Internet-Draft              NSEC/NSEC3 usage               November 2016
 
-
-   use of NSEC/NSEC3 for negative answers, we revise this
-   recommendation.
 
    As long as the validating resolver can determine that a name would
    not exist without the wildcard match, determined according to the
@@ -389,6 +386,9 @@ Internet-Draft              NSEC/NSEC3 usage               November 2016
       allocate and maintain state, thereby decreasing memory and CPU
       load.
 
+   Decreased authorative server load:  Because recursive servers can
+      answer queries without asking the authoritative server, the
+
 
 
 Fujiwara, et al.          Expires May 20, 2017                  [Page 7]
@@ -396,8 +396,6 @@ Fujiwara, et al.          Expires May 20, 2017                  [Page 7]
 Internet-Draft              NSEC/NSEC3 usage               November 2016
 
 
-   Decreased authorative server load:  Because recursive servers can
-      answer queries without asking the authoritative server, the
       authoritative servers receive fewer queries.  This decreases the
       authoritative server bandwidth, queries per second and CPU
       utilization.
@@ -441,6 +439,8 @@ Internet-Draft              NSEC/NSEC3 usage               November 2016
 8.  IANA Considerations
 
    This document has no IANA actions.
+
+
 
 
 
@@ -706,8 +706,8 @@ Internet-Draft              NSEC/NSEC3 usage               November 2016
 12.1.  Normative References
 
    [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
-              Requirement Levels", BCP 14, RFC 2119, DOI 10.17487/
-              RFC2119, March 1997,
+              Requirement Levels", BCP 14, RFC 2119,
+              DOI 10.17487/RFC2119, March 1997,
               <http://www.rfc-editor.org/info/rfc2119>.
 
    [RFC2308]  Andrews, M., "Negative Caching of DNS Queries (DNS
